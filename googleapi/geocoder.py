@@ -1,123 +1,124 @@
-import json
 import time
-from dataclasses import dataclass
+import traceback
 from pathlib import Path
 from queue import Queue, Empty
 
-from geopy import Location, Point
-from geopy.exc import GeocoderTimedOut
+from geopy import Location
+from geopy.exc import GeocoderServiceError
 from geopy.geocoders import GoogleV3
 
-from googleapi.google_credentials import GOOGLE_API_KEY
-from config import logger, MAX_RETRIES
-
-
-@dataclass
-class PdoLocation:
-    pdo_id: str  # like PDO_IT_234567
-    address: str
-    country: str = None  # derived
-    address_nocountry: str = None  # derived, without country - rsplit string!
-    status: str = 'unprocessed'  # set later
-    location: Location = None  # set later
-    point: Point = None
-    attempts: int = 0  # number of retries after first request failed
-
-    def __post_init__(self):
-        assert self.address, 'invalid address'
-        components = self.address.rsplit(',', maxsplit=1)
-        if len(components) != 2:
-            raise Exception(f'could not derive country from address "{self.address}"')
-        self.address_nocountry, self.country = components
-
-    def set_result(self, location: Location) -> None:
-        if isinstance(location, Location):
-            self.status = 'OK'
-            self.location = location
-            self.point = location.point
-        else:
-            self.status = 'failed'
-
-    def csv(self) -> str:
-        return ','.join(
-            [
-                self.pdo_id,
-                self.address_nocountry,
-                self.country,
-                self.status,
-                self.attempts < MAX_RETRIES,  # bool
-                json.dumps(self.location.raw),
-                self.point.longitude,  # lonlat format EPSG:4326
-                self.point.latitude
-            ]
-        )
+from common import logger, MAX_RETRIES, MAX_REQUESTS_PER_MINUTE, Credentials
+from definitions import PdoItem
 
 
 class Geocoder(GoogleV3):
     queue: Queue
-    results: list[PdoLocation]
-    results_single_queries: list[PdoLocation]
+    results: list[PdoItem]
+    cache: dict   # str address : Location
+    __min_time_between_requests: float = 60 / MAX_REQUESTS_PER_MINUTE    # seconds
+    __last_request_timestamp: float = 0
 
     def __init__(self, check_api: bool = True) -> None:
         self.queue = Queue()
         self.results = []
-        self.results_single_queries = []
+        self.cache = {}
 
-        super().__init__(api_key=GOOGLE_API_KEY, timeout=5)
+        super().__init__(api_key=Credentials.load().google, timeout=5)
         self.check_api() if check_api else None
 
-    def geocode_batch(self, addresses: list[PdoLocation]):
+    def geocode_batch(self, pdo_tasks: list[PdoItem]):
 
-        if not addresses:
+        if not pdo_tasks:
             return logger.warning('Empty batch came for geocoding')
 
         # populate q
-        print(f'Preparing {len(addresses)} to process')
-        for i in addresses:
+        print(f'Received {len(pdo_tasks)} geocoding tasks')
+        for i in pdo_tasks:
             self.queue.put(i)
 
+        total_tasks = len(pdo_tasks)
+        failed_count = 0
+
+        started_batch = time.perf_counter()
         try:
             while not self.queue.empty():
-                pdo_task: PdoLocation = self.queue.get_nowait()
+                pdo_task: PdoItem = self.queue.get_nowait()
 
                 # check retries
                 if pdo_task.attempts >= MAX_RETRIES + 1:
                     self.results.append(pdo_task)  # append incomplete
+                    continue
 
                 pdo_task.attempts += 1  # keep track of attempts for each
-                begin = time.perf_counter()
-                response: Location = super().geocode(
+
+                if (delta := (time.perf_counter() - self.__last_request_timestamp)) < self.__min_time_between_requests:
+                    time.sleep(delta)   # wait respect API
+
+                response: list[Location] = super().geocode(
                     pdo_task.address_nocountry, exactly_one=False,
                     components={'country': pdo_task.country}
                 )
-                elapsed = time.perf_counter() - begin
 
-                pdo_task.set_result(location=response)  # inplace
                 if response:
+                    pdo_task.set_result(location=response[0])
                     self.results.append(pdo_task)
                 else:
+                    pdo_task.status = 'failed'
                     # retry
                     self.queue.put_nowait(pdo_task)
+                    failed_count += 1
 
-                msg = f"{pdo_task.status} \t ({int(elapsed * 1000)} ms) \t {pdo_task.address_nocountry} ({pdo_task.country})"
-                logger.info(msg) if pdo_task.status == 'OK' else logger.warning(msg)
+                if self.results and ((res_count := len(self.results)) % 100 == 0 or res_count in [10, 20, 40, 60, 80]):
+                    logger.info(f"{res_count} / {total_tasks} successfully processed, {failed_count} failed")
 
         except Empty:
             pass
 
-    def geocode(self, pdo_task: PdoLocation, exactly_one: bool = True) -> PdoLocation:     # ignore warning from IDE
+        finally:
+            total_elapsed = time.perf_counter() - started_batch
+            m, s = divmod(int(total_elapsed), 60)
+            logger.info(f"GEOCODING COMPLETED! Processed {len(self.results)} locations in {m} m {s} s")
+        return self.results
+
+    def geocode_with_cache(self, address: str) -> (float, float):
+
+        # look up in cache first
+        if address in self.cache:
+            logger.info(f"Found cached value for {address}")
+            return self.cache[address]
+
+        begin = time.perf_counter()
+        xy = self.geocode(address, exactly_one=True)
+        self.__last_request_timestamp = time.perf_counter()
+        elapsed = self.__last_request_timestamp - begin
+
+        msg = "{} \t ({} ms) \t {} {}".format(
+            'OK' if xy else 'FAILED',
+            int(elapsed * 1000),
+            address,
+            tuple(round(i, 4) for i in xy)
+        )
+        logger.info(msg) if xy else logger.warning(msg)
+        return xy
+
+    def geocode(self, address: str, exactly_one: bool = True) -> (float, float):     # ignore warning from IDE
+
+        if not exactly_one:
+            raise NotImplemented('this geocoding approach supports exactly one point per address')
+
         try:
 
-            result: Location = super().geocode(
-                pdo_task.address_nocountry, exactly_one=exactly_one,
-                components={"country": pdo_task.country}
-            )
+            response: Location = super().geocode(address, exactly_one=exactly_one)
+            xy = self.cache[address] = response.longitude, response.latitude   # update cache
 
-            self.results_single_queries.append(pdo_task)
-            pdo_task.set_result(location=result)
-            return pdo_task
-        except GeocoderTimedOut:
-            logger.error(f"Timed out while geocoding {pdo_task.address}")
+            logger.warning(
+                f"Received multiple ({len(response)}) locations for '{address}'"
+            ) if (isinstance(response, list) and len(response) > 1) else None
+
+            return xy
+        except GeocoderServiceError:
+            logger.error(f"Exception caught when geocoding '{address}'")
+            logger.error(traceback.format_exc())
 
     def dump_to_csv(self, path: str):
         if not self.results:

@@ -1,0 +1,1 @@
+sudo OLLAMA_MODELS='/usr/share/ollama/.ollama/models' OLLAMA_HOST=0.0.0.0:11555 ollama serve

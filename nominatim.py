@@ -10,7 +10,7 @@ class NoResultsException(Exception):
     pass
 
 
-class OsmGeocoder(Nominatim):
+class OsmQgisGeocoder(Nominatim):
 
     id_counter = 1
     layer: QgsVectorLayer = None
