@@ -20,7 +20,7 @@ STEPS:
 - Feed derived georeferences to Geocoder to get points for each of these locations 
 (30K address references for initial dataset)
 - Download official geodata for EU land administration units from Eurostat's GISCO
-- 
+- Join PDO info to communes (polygons) in QGIS based on coordinates related to each PDO
 
 #### Download data
 XLSX Excel spreadsheet with all EU27 PDOs from eAmbrosia search engine page.
@@ -100,7 +100,8 @@ This may be useful to be able to clearly visualize separate PDO features instead
 
 
 ### SCRIPTS COMPONENT
-This relies on multiple dependencies that need to be installed prior to using it. 
+All scripts run in Python 3.12, may not work properly in earlier versions. 
+It relies on multiple dependencies that need to be installed prior to using it. 
 Below are listed only libraries essential for GPT georeferencing & Google Geocoding.
 Install each of these with
 
