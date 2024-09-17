@@ -1,13 +1,12 @@
 import json
 import os.path
 
-from chat_llm import ChatGptApi
-from common import GPT_GEOREFERENCES_DIR, logger
+from common import GPT_GEOREFERENCES_DIR, logger, PRODUCT_TYPE_LONG, PRODUCT_NAME, FILE_NUMBER, COUNTRY
 from definitions import PdoItem
-from extract_geometries import load_and_prepare, populate_pdo_data, PRODUCT_NAME, FILE_NUMBER, \
-    COUNTRY, PRODUCT_TYPE_LONG
+from parse_eambrosia_dataset import load_and_prepare
 from pathlib import Path
 
+from gpt.georef_engine import ChatGptApi
 
 # if true, does not repeat georeferencing for PDOs that already have the information in files
 # overwrites provious results!
@@ -52,7 +51,7 @@ def make_compound_csv():
 
 def main():
 
-    df = populate_pdo_data(load_and_prepare(assert_georef=False))  # includes PDO column with empty address
+    df = load_and_prepare(assert_georef=False)   # includes PDO column with empty address
 
     api = ChatGptApi()
 

@@ -2,31 +2,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from common import logger, GEOCODED_CSV, EAMBROSIA_CATALOG_CSV
+from common import logger, GEOCODED_CSV, EAMBROSIA_CATALOG_CSV, ID, PRODUCT_NAME, COUNTRY, GEOGRAPHIC_REFERENCE, \
+    FILE_NUMBER, JSON_SERIALIZED, STATUS_COL, LAT_COLUMN, LON_COLUMN, TMP_PDO_TASK_COL
 from definitions import PdoLocation
-from googleapi.geocoder import Geocoder
-
-# REQUIRED COLUMNS IN INPUT
-ID = 'ID'   # ID column integer autoincrement
-FILE_NUMBER = 'File number'
-COUNTRY = 'Country'
-PRODUCT_NAME = 'Name'
-# PRODUCT_TYPE_SHORT = 'Product type'    # only Food or Wine
-PRODUCT_TYPE_LONG = 'Product category (obsolete)'
-GEOGRAPHIC_REFERENCE = 'Georef'    # a.k.a. address to feed to Geocoding API
-
-# COLUMNS TO BE CREATED BY SCRIPT FOR OUTPUT
-LON_COLUMN = 'lon'  # Coordinate order Lon, Lat
-LAT_COLUMN = 'lat'
-STATUS_COL = 'GeocodingStatus'
-JSON_SERIALIZED = 'json'
-
-# TEMPORARY COLUMN WITH PYTHON OBJECTS, DROP IN THE END
-TMP_PDO_TASK_COL = 'TMP_PDO_TASK'
+from google.geocoder_api import Geocoder
 
 
 def load_and_prepare(assert_georef=True) -> pd.DataFrame:
-    # actual logic
+
+    """ Loads EAmbrosia XLSX dataset as pandas dataframe for future processing. """
+
     required_columns = [PRODUCT_NAME, COUNTRY]
     required_columns += [GEOGRAPHIC_REFERENCE] if assert_georef else []
     df = pd.read_csv(EAMBROSIA_CATALOG_CSV)
@@ -49,7 +34,10 @@ def load_and_prepare(assert_georef=True) -> pd.DataFrame:
     return df
 
 
-def populate_pdo_data(df: pd.DataFrame) -> pd.DataFrame:
+def ____populate_pdo_data(df: pd.DataFrame) -> pd.DataFrame:
+
+    """ """
+
     make_pdo_instance: callable = lambda row: PdoLocation(
         pdo_id=row[FILE_NUMBER],
         name=row[PRODUCT_NAME],
@@ -89,3 +77,4 @@ def dump_to_file(df: pd.DataFrame, filepath: str = GEOCODED_CSV):
 
 if __name__ == '__main__':
     dump_to_file( geocode_with_google( populate_pdo_data( load_and_prepare())))
+

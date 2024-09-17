@@ -1,6 +1,6 @@
 import random
 
-from extract_geometries import *
+from parse_eambrosia_dataset import *
 
 
 def llama_geocode():

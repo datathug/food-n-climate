@@ -1,0 +1,5 @@
+Now give me geographic references in national language for municipalities that belong to a PDO in {country},
+where {product_name} is produced. This product was classified as {product_type} in the EU nomenclature.
+Format your message so that each municipality is mentioned along with a province or state it is located in,
+in the same record after comma. Country name in its own language must be present last.
+Format output as an enumerated list.

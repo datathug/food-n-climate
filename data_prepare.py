@@ -1,7 +1,7 @@
 import pandas as pd
 
-from common import EAMBROSIA_CATALOG_CSV
-from extract_geometries import *
+from common import EAMBROSIA_CATALOG_CSV, ID, logger
+from parse_eambrosia_dataset import FILE_NUMBER, COUNTRY, PRODUCT_NAME
 
 
 def set_index_eambrosia():

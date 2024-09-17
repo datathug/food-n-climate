@@ -1,14 +1,13 @@
 import dataclasses
 import json
 from pathlib import Path
-import random
 
 import pandas as pd
 
 from common import GPT_GEOREFERENCES_DIR, logger, GEOREF_UNITS_CSV
 from definitions import PdoItem, GeorefUnit
-from googleapi.geocoder import Geocoder
-from gpt_geocode import COMPOUND_NAME
+from google.geocoder_api import Geocoder
+from georeferencing import COMPOUND_NAME
 
 
 APPEND_TO_PROGRESS = True       # will overwrite when False
@@ -131,16 +130,3 @@ for i in items:
 
 
 finalize_drop_duplicates()
-
-
-"""
-2495,PDO-FR-A0737,46.9497545,4.2994059,"Autun, Saône-et-Loire, France"
-2496,PDO-FR-A0737,46.6297354,5.225366699999999,"Louhans, Saône-et-Loire, France"
-2497,PDO-FR-A0737,47.48822,3.907721999999999,"Avallon, Yonne, France"
-2498,PDO-FR-A0737,47.798202,3.573781,"Auxerre, Yonne, France"
-2499,PDO-FR-A0737,48.20065,3.28268,"Sens, Yonne, France"
-2500,PDO-ES-0112,39.47173830000001,-3.5332049,"Madridejos, Toledo, España"
-
-14200,PDO-FR-0106,45.567979,6.668573899999999,"La Côte-d'Aime, Savoie, France"
-13896,PDO-IT-A1170,39.9284423,8.5300563,"Cabras, Provincia di Oristano, Italia"
-"""
