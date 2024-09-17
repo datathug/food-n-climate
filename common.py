@@ -1,5 +1,6 @@
 """ Global settings for the project. """
 
+# Files and paths
 LOG_FILE = 'data/google-geocode-gpt-data.log'
 TOKENS_COUNT_FILE = 'tokens.count'
 GPT_GEOREFERENCES_DIR = 'data/gpt-georef'
@@ -29,8 +30,8 @@ JSON_SERIALIZED = 'json'
 TMP_PDO_TASK_COL = 'TMP_PDO_TASK'
 
 EAMBROSIA_CATALOG_CSV = 'data/eambrosia-full.csv'
-GEOCODED_CSV = 'data/eambrosia_geocoded.csv'
-GEOREF_UNITS_CSV = 'data/georef_units_xy.csv'
+# GEOCODED_CSV = 'data/eambrosia_geocoded.csv'
+PDOS_GEOREF_XY = 'data/pdo_georef_xy.csv'
 
 # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
@@ -46,13 +47,7 @@ MAX_RETRIES = 2  # GOOGLE Geocoder - number of retries after first request faile
 MAX_REQUESTS_PER_MINUTE = 600
 
 # * * * * * * * * * * * * * *
-
-
-import base64
-import json
 import logging
-import os.path
-from dataclasses import dataclass
 
 
 # logging configuration - write to file and console
@@ -64,48 +59,3 @@ consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(logging.Formatter(LOGGER_FORMAT))
 logger.addHandler(consoleHandler)
 logger.setLevel(logging.INFO)
-
-
-@dataclass
-class Credentials:
-    google: str
-    openai: str
-
-    @classmethod
-    def load(cls):
-        fp = os.path.abspath(CREDENTIALS_FILE)
-        assert os.path.isfile(fp), f'Credentials file {fp} does not exist'
-        with open(fp, "r") as f:
-            logger.info(f"Using credentials from {CREDENTIALS_FILE}")
-            # decode
-            keys = json.load(f)
-            for k in keys:
-                keys[k] = base64.b64decode(keys[k]).decode('utf-8')
-            return cls(**keys)
-
-
-@dataclass
-class PROMPTS:
-
-    system: str
-    user: str
-
-    @classmethod
-    def load(cls):
-        fp = os.path.abspath(SYSTEM_PROMPT_FILE)
-        assert os.path.isfile(fp), f'{fp} does not exist'
-        with open(fp, "r") as f:
-            system = f.read()
-
-        fp = os.path.abspath(USER_PROMPT_FILE)
-        assert os.path.isfile(fp), f'{fp} does not exist'
-        with open(fp, "r") as f:
-            user = f.read()
-
-        assert system and user, 'invalid prompts'
-        logger.info(f"Loaded ChatGPT prompts from files {SYSTEM_PROMPT_FILE}  {USER_PROMPT_FILE}")
-        return cls(
-            # ensure formatting
-            system.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('   ', ' '),
-            user.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('   ', ' ')
-        )

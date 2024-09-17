@@ -1,18 +1,65 @@
+import base64
 import dataclasses
 import json
+import os
 from dataclasses import dataclass, field
 from itertools import count
 from pathlib import Path
 
-# required for qgis import - only for PdoLocation class
+# required for qgis import - issue only for PdoLocation class, normally should work
 try:
     from geopy import Point, Location
-    from common import MAX_RETRIES, logger
+    from common import MAX_RETRIES, logger, CREDENTIALS_FILE, SYSTEM_PROMPT_FILE, USER_PROMPT_FILE
 except ImportError:
     Location = None
     Point = None
     logger = None
     MAX_RETRIES = -1
+
+
+@dataclass
+class Credentials:
+    google: str
+    openai: str
+
+    @classmethod
+    def load(cls):
+        fp = os.path.abspath(CREDENTIALS_FILE)
+        assert os.path.isfile(fp), f'Credentials file {fp} does not exist'
+        with open(fp, "r") as f:
+            logger.info(f"Using credentials from {CREDENTIALS_FILE}")
+            # decode
+            keys = json.load(f)
+            for k in keys:
+                keys[k] = base64.b64decode(keys[k]).decode('utf-8')
+            return cls(**keys)
+
+
+@dataclass
+class PROMPTS:
+
+    system: str
+    user: str
+
+    @classmethod
+    def load(cls):
+        fp = os.path.abspath(SYSTEM_PROMPT_FILE)
+        assert os.path.isfile(fp), f'{fp} does not exist'
+        with open(fp, "r") as f:
+            system = f.read()
+
+        fp = os.path.abspath(USER_PROMPT_FILE)
+        assert os.path.isfile(fp), f'{fp} does not exist'
+        with open(fp, "r") as f:
+            user = f.read()
+
+        assert system and user, 'invalid prompts'
+        logger.info(f"Loaded ChatGPT prompts from files {SYSTEM_PROMPT_FILE}  {USER_PROMPT_FILE}")
+        return cls(
+            # ensure formatting
+            system.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('   ', ' '),
+            user.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('   ', ' ')
+        )
 
 
 @dataclass
