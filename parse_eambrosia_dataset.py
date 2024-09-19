@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from common import logger, GEOCODED_CSV, EAMBROSIA_CATALOG_CSV, ID, PRODUCT_NAME, COUNTRY, GEOGRAPHIC_REFERENCE, \
-    FILE_NUMBER, JSON_SERIALIZED, STATUS_COL, LAT_COLUMN, LON_COLUMN, TMP_PDO_TASK_COL
+from common import logger, EAMBROSIA_CATALOG_CSV, ID, PRODUCT_NAME, COUNTRY, GEOGRAPHIC_REFERENCE, \
+    FILE_NUMBER, JSON_SERIALIZED, STATUS_COL, LAT_COLUMN, LON_COLUMN, TMP_PDO_TASK_COL, PDOS_GEOREF_XY
 from definitions import PdoLocation
 from google.geocoder_api import Geocoder
 
@@ -68,13 +68,8 @@ def geocode_with_google(df: pd.DataFrame):
     return df
 
 
-def dump_to_file(df: pd.DataFrame, filepath: str = GEOCODED_CSV):
+def dump_to_file(df: pd.DataFrame, filepath: str = PDOS_GEOREF_XY):
     # dump to CSV
     if Path(filepath).is_file():
         logger.warning(f'Output CSV will be overwritten')
     df.to_csv(filepath, index=False)
-
-
-if __name__ == '__main__':
-    dump_to_file( geocode_with_google( populate_pdo_data( load_and_prepare())))
-

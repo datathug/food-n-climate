@@ -2,11 +2,10 @@ import os
 import time
 from datetime import datetime
 
-from common import logger, CHATGPT_TEMPERATURE, OPENAI_MODEL, Credentials, TOKENS_COUNT_FILE, PROMPTS
-from definitions import PdoItem
+from common import logger, CHATGPT_TEMPERATURE, OPENAI_MODEL, TOKENS_COUNT_FILE
+from definitions import PdoItem, Credentials, Prompts
 
-from openai import OpenAI
-import tiktoken
+from openai import OpenAI, ChatCompletion
 
 
 class ChatGptApi(OpenAI):
@@ -14,9 +13,8 @@ class ChatGptApi(OpenAI):
     prev_messages: list
     last_call_elapsed: float    # seconds
     results: list
-    prompts: PROMPTS
+    prompts: Prompts
 
-    encoder = tiktoken.encoding_for_model("gpt-4o")
     tokens_file = TOKENS_COUNT_FILE
     token_count: int = 0
     token_count_at_start: int = 0
@@ -29,9 +27,9 @@ class ChatGptApi(OpenAI):
         self.prev_messages = []
         self.results = []
         self.load_token_count()
-        self.chat.completions.create = self.count_tokens(self.chat.completions.create)  # wrap
+        # self.chat.completions.create = self.count_tokens(self.chat.completions.create)  # wrap
         logger.info(f"{datetime.now().ctime()} OpenAI API client initiated")
-        self.prompts = PROMPTS.load()
+        self.prompts = Prompts.load()
 
 
     def load_token_count(self):
@@ -47,24 +45,40 @@ class ChatGptApi(OpenAI):
             with open(self.tokens_file, 'w') as f:
                 f.write(str(self.token_count))
 
+    def perform_completion(self, *args, **kwargs):
+
+        raw_comp = self.chat.completions.with_raw_response.create(*args, **kwargs)
+        comp: ChatCompletion = raw_comp.parse()
+        headers = raw_comp.headers
+        self.results.append(comp)
+
+        # TODO use headers info to keep track of tokens
+
+        try:
+            self.session_tokens_in += comp.usage.prompt_tokens
+            self.session_tokens_out += comp.usage.completion_tokens
+            self.token_count += comp.usage.total_tokens
+            self.last_call_tokens = comp.usage.total_tokens
+            self.record_tokens()
+        finally:
+            return comp
+
     def count_tokens(self, f):
 
         """ Decorator for the actual call to the superclass's method. """
 
         def wrapper(*args, **kwargs):
-            in_tokens = sum([len(self.encoder.encode(x['content'])) for x in kwargs['messages']])
-            self.token_count += in_tokens
-            self.session_tokens_in += in_tokens
-            result = f(*args, **kwargs)
-            self.results.append(result)
+            comp: ChatCompletion = f(*args, **kwargs)
+            self.results.append(comp)
+
             try:
-                out_tokens = sum([len(self.encoder.encode(x.message.content)) for x in result.choices])
-                self.token_count += out_tokens
-                self.session_tokens_out += out_tokens
-                self.last_call_tokens = in_tokens + out_tokens
+                self.session_tokens_in += comp.usage.prompt_tokes
+                self.session_tokens_out += comp.usage.completion_tokens
+                self.token_count += comp.usage.total_tokens
+                self.last_call_tokens = comp.usage.prompt_tokes
                 self.record_tokens()
             finally:
-                return result
+                return comp
         return wrapper
 
     def message(self, msg):
@@ -90,7 +104,7 @@ class ChatGptApi(OpenAI):
             msg = self.prompts.user.format(country=pdo.country_EN, product_name=pdo.name, product_type=pdo.type_long)
 
         b = time.perf_counter()
-        completion = self.chat.completions.create(
+        completion = self.perform_completion(
             messages=[
                 {
                     'role': 'system',

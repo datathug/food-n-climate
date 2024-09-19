@@ -36,7 +36,7 @@ class Credentials:
 
 
 @dataclass
-class PROMPTS:
+class Prompts:
 
     system: str
     user: str

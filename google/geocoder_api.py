@@ -7,8 +7,8 @@ from geopy import Location
 from geopy.exc import GeocoderServiceError
 from geopy.geocoders import GoogleV3
 
-from common import logger, MAX_RETRIES, MAX_REQUESTS_PER_MINUTE, Credentials
-from definitions import PdoItem
+from common import logger, MAX_RETRIES, MAX_REQUESTS_PER_MINUTE
+from definitions import PdoItem, Credentials
 
 
 class Geocoder(GoogleV3):

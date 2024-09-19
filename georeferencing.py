@@ -74,7 +74,7 @@ def main():
             type_long=row[PRODUCT_TYPE_LONG]
         )
 
-        api.geocoding_prompt(pdo=pdo, verbose=True)     # parses data in place
+        api.geocoding_prompt(pdo=pdo, verbose=True)     # receives and parses data in place
         pdo.to_file(directory=GPT_GEOREFERENCES_DIR)    # dump to .json file
 
     make_compound()
