@@ -20,7 +20,8 @@ except ImportError:
 @dataclass
 class Credentials:
     google: str
-    openai: str
+    openai_nata: str
+    openai_tanya: str
 
     @classmethod
     def load(cls):

@@ -1,12 +1,15 @@
+import json
 import os
 import time
 from datetime import datetime
+from hashlib import md5
 
 from common import logger, CHATGPT_TEMPERATURE, OPENAI_MODEL, TOKENS_COUNT_FILE
 from definitions import PdoItem, Credentials, Prompts
 
 from openai import OpenAI, ChatCompletion
 
+1271107
 
 class ChatGptApi(OpenAI):
 
@@ -22,8 +25,10 @@ class ChatGptApi(OpenAI):
     session_tokens_out: int = 0
     last_call_tokens: int = -1
 
+    last_n_chars_for_key_strorage: int = 6
+
     def __init__(self):
-        super().__init__(api_key=Credentials.load().openai)
+        super().__init__(api_key=Credentials.load().openai_nata)
         self.prev_messages = []
         self.results = []
         self.load_token_count()
@@ -35,15 +40,36 @@ class ChatGptApi(OpenAI):
     def load_token_count(self):
         if os.path.isfile(self.tokens_file):
             with open(self.tokens_file) as f:
-                self.token_count_at_start = self.token_count = int(f.read())
+                key_counts = json.load(f)
+                self.token_count_at_start = self.token_count = key_counts.get(self.api_key_identifier, 0)
                 logger.info(f"Loaded token count of {self.token_count} used before")
         else:
             self.token_count_at_start = self.token_count = 0
 
+    @property
+    def md5_key(self) -> str:
+        return md5(bytes(self.api_key, 'utf-8')).hexdigest()
+
+    @property
+    def api_key_identifier(self):
+        return "....{} ( MD5 {})".format(self.api_key[-self.last_n_chars_for_key_strorage:], self.md5_key)
+
     def record_tokens(self):
-        if self.token_count:
+        if self.token_count and self.token_count != self.token_count_at_start:
+
+            # create file if does not exist
+            if not os.path.isfile(self.tokens_file):
+                with open(self.tokens_file, 'w') as f:
+                    f.write('{ }')  # write empty JSON to avoid JSONDecode error - only when empty or new file
+                prev_state = {}
+
+            else:
+                with open(self.tokens_file, 'r') as f:
+                    prev_state = json.load(f)
+
+            prev_state[self.api_key_identifier] = self.token_count     # set updated value after request performed
             with open(self.tokens_file, 'w') as f:
-                f.write(str(self.token_count))
+                json.dump(prev_state, f)
 
     def perform_completion(self, *args, **kwargs):
 
