@@ -145,6 +145,5 @@ Install each of these with
 `python -m pip install <DEPENDENCY NAME>`
 
 - pandas (tables and CSV operations)
-- tiktoken (count tokens used with ChatGPT - important for billing)
 - openapi (GhatGPT API)
 - geopy (Google's Geocoder API)
