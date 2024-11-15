@@ -15,12 +15,12 @@ Usually this coordinate is very close to province / commune geographic center.
 ## ANALYSIS LOGIC
 
 STEPS:
-- Download source PDO info from eAmbrosia (1864 PDOs)
-- Feed PDO info one by one to ChatGPT to get address-like locations **(georeference)**
+- Download source PDO+PGI info from eAmbrosia 
+- Feed PDO+PGI info one by one to ChatGPT to get address-like locations **(georeference)**
 - Feed derived georeferences to Geocoder to get points for each of these locations 
 (30K address references for initial dataset)
 - Download official geodata for EU land administration units from Eurostat's GISCO
-- Join PDO info to communes (polygons) in QGIS based on coordinates related to each PDO
+- Join PDO+PGI info to communes (polygons) in QGIS based on coordinates related to each PDO
 
 
 #### Intro
